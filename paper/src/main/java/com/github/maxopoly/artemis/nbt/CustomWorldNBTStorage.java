@@ -1,5 +1,14 @@
 package com.github.maxopoly.artemis.nbt;
 
+import com.github.maxopoly.artemis.ArtemisPlugin;
+import com.github.maxopoly.artemis.rabbit.session.ArtemisPlayerDataTransferSession;
+import com.github.maxopoly.artemis.util.BukkitConversion;
+import com.github.maxopoly.zeus.ZeusMain;
+import com.github.maxopoly.zeus.model.ConnectedMapState;
+import com.github.maxopoly.zeus.model.ZeusLocation;
+import com.github.maxopoly.zeus.rabbit.outgoing.artemis.SendPlayerData;
+import com.github.maxopoly.zeus.rabbit.sessions.PlayerDataTransferSession;
+import com.mojang.datafixers.DataFixer;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -17,45 +26,27 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
-
+import net.minecraft.Util;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.NbtUtils;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.dedicated.DedicatedPlayerList;
+import net.minecraft.server.players.PlayerList;
+import net.minecraft.util.datafix.DataFixTypes;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.storage.LevelResource;
+import net.minecraft.world.level.storage.LevelStorageSource;
+import net.minecraft.world.level.storage.PlayerDataStorage;
 import org.bukkit.Bukkit;
 import org.bukkit.Server;
-import org.bukkit.World;
-import org.bukkit.craftbukkit.v1_16_R3.CraftServer;
-
-import com.github.maxopoly.artemis.ArtemisPlugin;
-import com.github.maxopoly.artemis.rabbit.session.ArtemisPlayerDataTransferSession;
-import com.github.maxopoly.artemis.util.BukkitConversion;
-import com.github.maxopoly.zeus.ZeusMain;
-import com.github.maxopoly.zeus.model.ConnectedMapState;
-import com.github.maxopoly.zeus.model.ZeusLocation;
-import com.github.maxopoly.zeus.rabbit.outgoing.artemis.SendPlayerData;
-import com.github.maxopoly.zeus.rabbit.sessions.PlayerDataTransferSession;
-import com.mojang.datafixers.DataFixer;
-
-import net.minecraft.server.v1_16_R3.Convertable;
-import net.minecraft.server.v1_16_R3.Convertable.ConversionSession;
-import net.minecraft.server.v1_16_R3.DataFixTypes;
-import net.minecraft.server.v1_16_R3.DedicatedPlayerList;
-import net.minecraft.server.v1_16_R3.EntityHuman;
-import net.minecraft.server.v1_16_R3.GameProfileSerializer;
-import net.minecraft.server.v1_16_R3.MinecraftServer;
-import net.minecraft.server.v1_16_R3.NBTCompressedStreamTools;
-import net.minecraft.server.v1_16_R3.NBTTagCompound;
-import net.minecraft.server.v1_16_R3.PlayerList;
-import net.minecraft.server.v1_16_R3.SavedFile;
-import net.minecraft.server.v1_16_R3.SystemUtils;
-import net.minecraft.server.v1_16_R3.WorldNBTStorage;
+import org.bukkit.craftbukkit.v1_18_R2.CraftServer;
 import vg.civcraft.mc.civmodcore.playersettings.PlayerSetting;
 import vg.civcraft.mc.civmodcore.playersettings.PlayerSettingAPI;
 import vg.civcraft.mc.civmodcore.serialization.NBTCompound;
 
-public class CustomWorldNBTStorage extends WorldNBTStorage {
+public class CustomWorldNBTStorage extends PlayerDataStorage {
 
 	private final ExecutorService saveExecutor = Executors.newFixedThreadPool(1);
 
@@ -78,9 +69,9 @@ public class CustomWorldNBTStorage extends WorldNBTStorage {
 
 	private final File playerDir;
 
-	private CustomWorldNBTStorage(ConversionSession conversionsession, DataFixer datafixer) {
+	private CustomWorldNBTStorage(LevelStorageSource.LevelStorageAccess conversionsession, DataFixer datafixer) {
 		super(conversionsession, datafixer);
-		this.playerDir = conversionsession.getWorldFolder(SavedFile.PLAYERDATA).toFile();
+		this.playerDir = conversionsession.getLevelPath(LevelResource.PLAYER_DATA_DIR).toFile();
 		this.playerDir.mkdirs();
 		this.customDataOriginallyLoaded = new ConcurrentHashMap<>();
 	}
@@ -95,7 +86,7 @@ public class CustomWorldNBTStorage extends WorldNBTStorage {
 
 	public static ZeusLocation readZeusLocation(byte[] playerData) {
 		try {
-			NBTTagCompound nbttagcompound = NBTCompressedStreamTools.a(new ByteArrayInputStream(playerData));
+			CompoundTag nbttagcompound = NbtIo.readCompressed(new ByteArrayInputStream(playerData));
 			NBTCompound comp = new NBTCompound(nbttagcompound);
 			double[] pos = comp.getDoubleArray("Pos");
 			ConnectedMapState mapState = ArtemisPlugin.getInstance().getConfigManager().getConnectedMapState();
@@ -106,20 +97,20 @@ public class CustomWorldNBTStorage extends WorldNBTStorage {
 		}
 	}
 
-	public void vanillaSave(EntityHuman entityhuman) {
-		NBTTagCompound nbttagcompound = entityhuman.save(new NBTTagCompound());
-		insertCustomPlayerData(entityhuman.getUniqueID(), nbttagcompound);
-		saveFullData(nbttagcompound, entityhuman.getUniqueID());
+	public void vanillaSave(Player entityhuman) {
+		CompoundTag nbttagcompound = entityhuman.saveWithoutId(new CompoundTag());
+		insertCustomPlayerData(entityhuman.getUUID(), nbttagcompound);
+		saveFullData(nbttagcompound, entityhuman.getUUID());
 	}
 
-	public void saveFullData(NBTTagCompound compound, UUID uuid) {
+	public void saveFullData(CompoundTag compound, UUID uuid) {
 		saveExecutor.submit(() -> {
 			try {
 				File file = File.createTempFile(uuid.toString() + "-", ".dat", this.playerDir);
-				NBTCompressedStreamTools.a(compound, new FileOutputStream(file));
+				NbtIo.writeCompressed(compound, new FileOutputStream(file));
 				File file1 = new File(this.playerDir, uuid + ".dat");
 				File file2 = new File(this.playerDir, uuid + ".dat_old");
-				SystemUtils.a(file1, file, file2);
+				Util.safeReplaceFile(file1, file, file2);
 			} catch (Exception exception) {
 				ZeusMain.getInstance().getLogger().warn("Failed to save player data for {}", uuid.toString());
 			}
@@ -130,19 +121,19 @@ public class CustomWorldNBTStorage extends WorldNBTStorage {
 	public void saveFullData(byte[] rawData, UUID uuid) {
 		try {
 			ByteArrayInputStream input = new ByteArrayInputStream(rawData);
-			NBTTagCompound comp = NBTCompressedStreamTools.a(input);
+			CompoundTag comp = NbtIo.readCompressed(input);
 			saveFullData(comp, uuid);
 		} catch (IOException e) {
 			ZeusMain.getInstance().getLogger().warn("Failed to save player data for {}", uuid.toString());
 		}
 	}
 
-	public NBTTagCompound vanillaLoad(UUID uuid) {
-		NBTTagCompound nbttagcompound = null;
+	public CompoundTag vanillaLoad(UUID uuid) {
+		CompoundTag nbttagcompound = null;
 		try {
 			File file = new File(this.playerDir, String.valueOf(uuid.toString()) + ".dat");
 			if (file.exists() && file.isFile()) {
-				nbttagcompound = NBTCompressedStreamTools.a(new FileInputStream(file));
+				nbttagcompound = NbtIo.readCompressed(new FileInputStream(file));
 			}
 		} catch (Exception exception) {
 			ZeusMain.getInstance().getLogger().warn("Failed to vanilla load player data for " + uuid);
@@ -150,14 +141,14 @@ public class CustomWorldNBTStorage extends WorldNBTStorage {
 		return nbttagcompound;
 	}
 
-	public void save(EntityHuman entityhuman) {
-		if (isActive(entityhuman.getUniqueID())) {
+	public void save(Player entityhuman) {
+		if (isActive(entityhuman.getUUID())) {
 			vanillaSave(entityhuman);
 			return;
 		}
 		ArtemisPlugin artemis = ArtemisPlugin.getInstance();
-		NBTTagCompound nbttagcompound = entityhuman.save(new NBTTagCompound());
-		insertCustomPlayerData(entityhuman.getUniqueID(), nbttagcompound);
+		CompoundTag nbttagcompound = entityhuman.saveWithoutId(new CompoundTag());
+		insertCustomPlayerData(entityhuman.getUUID(), nbttagcompound);
 		if (ArtemisPlugin.getInstance().getConfigManager().isDebugEnabled()) {
 			ArtemisPlugin.getInstance().getLogger().info("Saved NBT : " + nbttagcompound.toString());
 		}
@@ -169,7 +160,7 @@ public class CustomWorldNBTStorage extends WorldNBTStorage {
 		// save both location and data in that session
 		ByteArrayOutputStream output = new ByteArrayOutputStream();
 		try {
-			NBTCompressedStreamTools.a(nbttagcompound, output);
+			NbtIo.writeCompressed(nbttagcompound, output);
 		} catch (IOException e) {
 			artemis.getLogger().severe("Failed to serialize player data: " + e.toString());
 			return;
@@ -182,24 +173,24 @@ public class CustomWorldNBTStorage extends WorldNBTStorage {
 		// always vanilla save
 		vanillaSave(entityhuman);
 		ArtemisPlugin.getInstance().getRabbitHandler()
-				.sendMessage(new SendPlayerData(transactionId, entityhuman.getUniqueID(), data, location));
+				.sendMessage(new SendPlayerData(transactionId, entityhuman.getUUID(), data, location));
 	}
 
-	public NBTTagCompound load(EntityHuman entityhuman) {
-		NBTTagCompound comp = loadCompound(entityhuman.getUniqueID());
+	public CompoundTag load(Player entityhuman) {
+		CompoundTag comp = loadCompound(entityhuman.getUUID());
 		if (comp != null) {
 			int i = comp.hasKeyOfType("DataVersion", 3) ? comp.getInt("DataVersion") : -1;
-			entityhuman.load(GameProfileSerializer.a(this.a, DataFixTypes.PLAYER, comp, i));
+			entityhuman.load(NbtUtils.update(this.fixerUpper, DataFixTypes.PLAYER, comp, i));
 		}
 		return comp;
 	}
 
-	public NBTTagCompound getPlayerData(String s) {
+	public CompoundTag getPlayerData(String s) {
 		UUID uuid = UUID.fromString(s);
 		return loadCompound(uuid);
 	}
 
-	private NBTTagCompound loadCompound(UUID uuid) {
+	private CompoundTag loadCompound(UUID uuid) {
 		PlayerDataTransferSession session = ArtemisPlugin.getInstance().getPlayerDataCache().consumeSession(uuid);
 		if (session == null) {
 			return null;
@@ -210,7 +201,7 @@ public class CustomWorldNBTStorage extends WorldNBTStorage {
 		}
 		ByteArrayInputStream input = new ByteArrayInputStream(session.getData());
 		try {
-			NBTCompound comp = new NBTCompound(NBTCompressedStreamTools.a(input));
+			NBTCompound comp = new NBTCompound(NbtIo.readCompressed(input));
 			ZeusLocation loc = session.getLocation();
 			if (loc == null) {
 				loc = BukkitConversion.convertLocation(
@@ -247,15 +238,15 @@ public class CustomWorldNBTStorage extends WorldNBTStorage {
 			Field trueServerField = CraftServer.class.getDeclaredField("console");
 			trueServerField.setAccessible(true);
 			MinecraftServer trueServer = (MinecraftServer) trueServerField.get(server);
-			Field nbtField = MinecraftServer.class.getDeclaredField("worldNBTStorage");
-			Convertable.ConversionSession session = trueServer.convertable;
-			DataFixer dataFixer = trueServer.dataConverterManager;
+			Field nbtField = MinecraftServer.class.getDeclaredField("playerDataStorage");
+			LevelStorageSource.LevelStorageAccess session = trueServer.storageSource;
+			DataFixer dataFixer = trueServer.fixerUpper;
 			CustomWorldNBTStorage customNBT = new CustomWorldNBTStorage(session, dataFixer);
 			overwriteFinalField(nbtField, customNBT, trueServer);
 			Field playerListField = CraftServer.class.getDeclaredField("playerList");
 			playerListField.setAccessible(true);
 			DedicatedPlayerList playerList = (DedicatedPlayerList) playerListField.get(server);
-			Field nbtPlayerListField = PlayerList.class.getField("playerFileData");
+			Field nbtPlayerListField = PlayerList.class.getField("playerIo");
 			overwriteFinalField(nbtPlayerListField, customNBT, playerList);
 			return customNBT;
 		} catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException e) {
@@ -286,7 +277,7 @@ public class CustomWorldNBTStorage extends WorldNBTStorage {
 		this.customDataOriginallyLoaded.put(player, extractedData);
 	}
 
-	private void insertCustomPlayerData(UUID player, NBTTagCompound generalPlayerDataCompound) {
+	private void insertCustomPlayerData(UUID player, CompoundTag generalPlayerDataCompound) {
 		Map<String, String> dataToInsert = customDataOriginallyLoaded.computeIfAbsent(player, p -> new HashMap<>());
 		for (PlayerSetting setting : PlayerSettingAPI.getAllSettings()) {
 			if (!setting.hasValue(player)) {
