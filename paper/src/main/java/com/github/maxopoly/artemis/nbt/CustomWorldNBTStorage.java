@@ -297,14 +297,9 @@ public class CustomWorldNBTStorage extends PlayerDataStorage {
 	private static void overwriteFinalField(Field field, Object newValue, Object obj) {
 		try {
 			field.setAccessible(true);
-			// remove final modifier from field
-			Field modifiersField;
-			modifiersField = Field.class.getDeclaredField("modifiers");
-			modifiersField.setAccessible(true);
-			modifiersField.setInt(field, field.getModifiers() & ~Modifier.PROTECTED);
 			field.set(obj, newValue);
-		} catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException e) {
-			ArtemisPlugin.getInstance().getLogger().log(Level.SEVERE, "Failed to set final field", e);
+		} catch (SecurityException | IllegalArgumentException | IllegalAccessException e) {
+			ArtemisPlugin.getInstance().getLogger().log(Level.SEVERE, "Failed to set final field", e.getStackTrace());
 		}
 	}
 
