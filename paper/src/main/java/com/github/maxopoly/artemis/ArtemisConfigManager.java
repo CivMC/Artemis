@@ -1,21 +1,18 @@
 package com.github.maxopoly.artemis;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.bukkit.Bukkit;
-import org.bukkit.Material;
-import org.bukkit.configuration.ConfigurationSection;
-
 import com.github.maxopoly.zeus.model.ConnectedMapState;
 import com.github.maxopoly.zeus.model.ZeusLocation;
 import com.github.maxopoly.zeus.rabbit.ZeusRabbitGateway;
 import com.rabbitmq.client.ConnectionFactory;
-
+import java.util.ArrayList;
+import java.util.List;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.configuration.ConfigurationSection;
 import vg.civcraft.mc.civmodcore.ACivMod;
-import vg.civcraft.mc.civmodcore.CoreConfigManager;
+import vg.civcraft.mc.civmodcore.config.ConfigParser;
 
-public class ArtemisConfigManager extends CoreConfigManager {
+public class ArtemisConfigManager extends ConfigParser {
 
 	private ConfigurationSection config;
 	private ConnectionFactory connectionFactory;
