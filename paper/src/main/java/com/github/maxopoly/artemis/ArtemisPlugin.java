@@ -1,5 +1,6 @@
 package com.github.maxopoly.artemis;
 
+import com.github.maxopoly.artemis.commands.ArtemisCommandManager;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -37,6 +38,7 @@ public final class ArtemisPlugin extends ACivMod {
 	private ZeusServer zeus;
 	private CustomWorldNBTStorage customNBTHandler;
 	private RandomSpawnHandler randomSpawnHandler;
+	private ArtemisCommandManager commandManager;
 	private ScheduledExecutorService transactionIdCleanup; // can't be a bukkit thread, because those are disable before
 															// onDisable and we
 	// still need it there
@@ -59,6 +61,7 @@ public final class ArtemisPlugin extends ACivMod {
 		this.globalPlayerTracker = new ArtemisPlayerManager();
 		this.randomSpawnHandler = new RandomSpawnHandler(this.configManager);
 		this.rabbitInputHandler = new ArtemisRabbitInputHandler(getLogger(), transactionIdManager);
+		this.commandManager = new ArtemisCommandManager(this);
 		this.rabbitHandler = new RabbitHandler(configManager.getConnectionFactory(),
 				configManager.getIncomingRabbitQueue(), configManager.getOutgoingRabbitQueue(), transactionIdManager,
 				getLogger(), zeus, rabbitInputHandler);
@@ -146,4 +149,7 @@ public final class ArtemisPlugin extends ACivMod {
 		return transactionIdManager;
 	}
 
+	public ArtemisCommandManager getCommandManager() {
+		return commandManager;
+	}
 }
