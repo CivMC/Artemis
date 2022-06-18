@@ -42,9 +42,9 @@ import net.minecraft.world.level.storage.PlayerDataStorage;
 import org.bukkit.Bukkit;
 import org.bukkit.Server;
 import org.bukkit.craftbukkit.v1_18_R2.CraftServer;
-import vg.civcraft.mc.civmodcore.playersettings.PlayerSetting;
-import vg.civcraft.mc.civmodcore.playersettings.PlayerSettingAPI;
-import vg.civcraft.mc.civmodcore.serialization.NBTCompound;
+import vg.civcraft.mc.civmodcore.nbt.wrappers.NBTCompound;
+import vg.civcraft.mc.civmodcore.players.settings.PlayerSetting;
+import vg.civcraft.mc.civmodcore.players.settings.PlayerSettingAPI;
 
 public class CustomWorldNBTStorage extends PlayerDataStorage {
 
@@ -179,7 +179,7 @@ public class CustomWorldNBTStorage extends PlayerDataStorage {
 	public CompoundTag load(Player entityhuman) {
 		CompoundTag comp = loadCompound(entityhuman.getUUID());
 		if (comp != null) {
-			int i = comp.hasKeyOfType("DataVersion", 3) ? comp.getInt("DataVersion") : -1;
+			int i = comp.contains("DataVersion", 3) ? comp.getInt("DataVersion") : -1;
 			entityhuman.load(NbtUtils.update(this.fixerUpper, DataFixTypes.PLAYER, comp, i));
 		}
 		return comp;

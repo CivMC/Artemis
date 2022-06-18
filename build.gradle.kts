@@ -15,9 +15,6 @@ subprojects {
 
     repositories {
         mavenCentral()
-        maven("https://repo.aikar.co/content/groups/aikar/")
-        maven("https://libraries.minecraft.net")
-
-        maven("https://jitpack.io")
+        maven("https://repo.civmc.net/repository/maven-public/")
     }
 }
