@@ -1,12 +1,12 @@
 # READ MORE: https://www.spigotmc.org/wiki/plugin-yml/
 
-name: ${project.name}
+name: ${name}
 
-version: ${project.version}
+version: ${version}
 
-main: ${project.groupId}.${project.artifactId}.ArtemisPlugin
+main: com.github.maxopoly.artemis.ArtemisPlugin
 
-api-version: 1.14
+api-version: 1.18
 
 depend: [CivModCore]
 

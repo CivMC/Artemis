@@ -4,15 +4,15 @@ import java.util.UUID;
 
 import com.github.maxopoly.zeus.rabbit.sessions.PlayerDataTransferSession;
 import com.github.maxopoly.zeus.servers.ConnectedServer;
+import net.minecraft.world.entity.player.Player;
 
-import net.minecraft.server.v1_16_R3.EntityHuman;
 
 public class ArtemisPlayerDataTransferSession extends PlayerDataTransferSession {
 
-	private EntityHuman entityHuman;
+	private Player entityHuman;
 	private int requestAttempt;
 	
-	public ArtemisPlayerDataTransferSession(ConnectedServer source, String transactionID, EntityHuman entityHuman) {
+	public ArtemisPlayerDataTransferSession(ConnectedServer source, String transactionID, Player entityHuman) {
 		super(source, transactionID, entityHuman.getUniqueID());
 		this.entityHuman = entityHuman;
 		this.requestAttempt = 0;
@@ -23,7 +23,7 @@ public class ArtemisPlayerDataTransferSession extends PlayerDataTransferSession 
 		this.entityHuman = null; //is offline
 	}
 	
-	public EntityHuman getEntityHuman() {
+	public Player getEntityHuman() {
 		return entityHuman;
 	}
 	

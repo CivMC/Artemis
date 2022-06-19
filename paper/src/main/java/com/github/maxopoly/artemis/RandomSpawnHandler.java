@@ -20,8 +20,8 @@ import org.bukkit.block.Block;
 
 import com.destroystokyo.paper.MaterialTags;
 import com.github.maxopoly.zeus.model.ConnectedMapState;
+import vg.civcraft.mc.civmodcore.inventory.items.MaterialUtils;
 
-import vg.civcraft.mc.civmodcore.api.MaterialAPI;
 
 public class RandomSpawnHandler {
 
@@ -103,7 +103,7 @@ public class RandomSpawnHandler {
 			int z = pos.getBlockZ() & 0xF;
 			for (int y = maxY; y >= minY; y--) {
 				Block block = chunk.getBlock(x, y, z);
-				if (MaterialAPI.isAir(block.getType())) {
+				if (MaterialUtils.isAir(block.getType())) {
 					airCount++;
 					continue;
 				}
